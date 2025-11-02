@@ -1,16 +1,30 @@
 """
 Script para remover os arquivos de exemplo do projeto.
 
+Uso:
+  - Dry-run (não remove, só mostra):
+      python scripts/cleanup_example.py --dry-run
+  - Execução sem prompt:
+      python scripts/cleanup_example.py --yes
+
 Este script remove os arquivos relacionados ao exemplo prático de API de Tarefas (To-Do).
 """
 import os
 import shutil
 from pathlib import Path
+import argparse
 
-def remove_example():
-    """Remove os arquivos de exemplo do projeto."""
-    # Diretório base do projeto
-    base_dir = Path(__file__).parent.parent
+
+def _is_safe_path(base_dir: Path, target: Path) -> bool:
+    """Garante que o caminho alvo está dentro do diretório do projeto."""
+    try:
+        return target.resolve().is_relative_to(base_dir.resolve())
+    except Exception:
+        return False
+
+
+def _targets(base_dir: Path):
+    """Retorna tupla (files_to_remove, dirs_to_check)."""
     src_dir = base_dir / "src" / "boilerplate"
     
     # Lista de arquivos e diretórios a serem removidos
@@ -34,7 +48,7 @@ def remove_example():
         src_dir / "static" / "js" / "main.js",
         src_dir / "static" / "images" / "favicon.ico",
     ]
-    
+
     # Diretórios que podem ficar vazios após a remoção
     dirs_to_check = [
         # Diretórios da API
@@ -64,9 +78,28 @@ def remove_example():
         base_dir / "__pycache__",
         base_dir / ".pytest_cache",
     ]
-    
+
+    return files_to_remove, dirs_to_check
+
+
+def remove_example(base_dir: Path, dry_run: bool = True) -> list[str]:
+    """Remove os arquivos de exemplo do projeto.
+
+    Se dry_run=True, apenas lista o que seria removido.
+    """
+    files_to_remove, dirs_to_check = _targets(base_dir)
+
+    # Segurança: todos os alvos devem estar dentro de base_dir
+    unsafe = [p for p in (*files_to_remove, *dirs_to_check) if not _is_safe_path(base_dir, p)]
+    if unsafe:
+        raise RuntimeError(f"Foram detectados caminhos inseguros fora do projeto: {unsafe}")
+
+    planned = [str(p.relative_to(base_dir)) for p in files_to_remove if p.exists()]
+    if dry_run:
+        return planned
+
+    removed: list[str] = []
     # Remove os arquivos
-    removed = []
     for file_path in files_to_remove:
         if file_path.exists():
             try:
@@ -78,7 +111,7 @@ def remove_example():
                     removed.append(f"{str(file_path.relative_to(base_dir))}/ (diretório)")
             except Exception as e:
                 print(f"Erro ao remover {file_path}: {e}")
-    
+
     # Remove diretórios vazios (em ordem reversa para garantir que subdiretórios sejam removidos primeiro)
     for dir_path in reversed(dirs_to_check):
         try:
@@ -87,18 +120,50 @@ def remove_example():
                 removed.append(f"{str(dir_path.relative_to(base_dir))}/ (diretório vazio)")
         except Exception as e:
             print(f"Erro ao remover diretório vazio {dir_path}: {e}")
-    
+
     return removed
 
 if __name__ == "__main__":
-    print("Removendo arquivos de exemplo...")
-    removed = remove_example()
-    
+    parser = argparse.ArgumentParser(description="Remove arquivos do exemplo prático (To-Do)")
+    parser.add_argument("--dry-run", action="store_true", help="Apenas mostra o que seria removido")
+    parser.add_argument("--yes", action="store_true", help="Executa sem pedir confirmação")
+    args = parser.parse_args()
+
+    base_dir = Path(__file__).parent.parent
+    print("📁 Diretório do projeto:", base_dir)
+
+    try:
+        plan = remove_example(base_dir, dry_run=True)
+    except Exception as e:
+        print(f"❌ Erro de segurança: {e}")
+        raise SystemExit(2)
+
+    if not plan:
+        print("ℹ️ Nenhum arquivo de exemplo encontrado para remoção.")
+        raise SystemExit(0)
+
+    print("\n📝 Itens planejados para remoção:")
+    for item in plan:
+        print(f"- {item}")
+
+    if args.dry_run and not args.yes:
+        print("\n✅ Dry-run concluído. Nada foi removido.")
+        raise SystemExit(0)
+
+    if not args.yes:
+        confirm = input("\nTem certeza que deseja remover os itens acima? (digite 'sim' para confirmar) ").strip().lower()
+        if confirm != "sim":
+            print("Operação cancelada.")
+            raise SystemExit(0)
+
+    print("\n🧹 Removendo arquivos de exemplo...")
+    removed = remove_example(base_dir, dry_run=False)
+
     if removed:
         print("\n✅ Arquivos removidos com sucesso:")
         for item in removed:
             print(f"- {item}")
-        
+
         print("\n📝 Ações manuais necessárias:")
         print("1. Remova as rotas relacionadas ao exemplo do arquivo main.py")
         print("2. Remova as importações não utilizadas no main.py")
@@ -108,6 +173,6 @@ if __name__ == "__main__":
         print("6. Se estiver usando controle de versão, faça commit das alterações")
     else:
         print("ℹ️ Nenhum arquivo de exemplo encontrado para remoção.")
-    
+
     # Sugestão de comandos para limpar o cache do navegador
     print("\n💡 Dica: Limpe o cache do seu navegador para garantir que as alterações tenham efeito.")

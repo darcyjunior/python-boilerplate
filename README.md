@@ -2,6 +2,41 @@
 
 Um template moderno para projetos Python seguindo as melhores práticas de desenvolvimento, pronto para ser utilizado como base em novos projetos.
 
+## 📚 Sumário
+
+- [Quickstart](#-quickstart)
+- [Recursos](#-recursos)
+- [Testes](#-testes)
+- [Ambiente (Python 3.11)](#-ambiente-python-311)
+- [Variáveis de Ambiente](#-variáveis-de-ambiente-env)
+- [Scripts úteis](#-scripts-úteis)
+- [Exemplo Prático](#-exemplo-prático)
+- [Interface Web](#-interface-web-para-o-exemplo-de-tarefas)
+- [Executando localmente](#-executando-localmente)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Ferramentas de Desenvolvimento](#-ferramentas-de-desenvolvimento)
+- [Contribuindo](#-contribuindo)
+
+## ⚡ Quickstart
+
+```bash
+# 1) Clonar o repositório
+git clone https://github.com/darcyjunior/python-boilerplate.git
+cd python-boilerplate
+
+# 2) Criar e ativar venv (Python 3.11)
+python3.11 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -U pip
+pip install -e ".[dev]"
+
+# 3) Rodar o servidor (porta 8010)
+uvicorn boilerplate.main:app --reload --port 8010
+
+# 4) Abrir a documentação
+xdg-open http://localhost:8010/docs || open http://localhost:8010/docs
+```
+
 ## 🚀 Recursos
 
 - ✅ Estrutura de projeto Python moderna e organizada
@@ -101,193 +136,53 @@ Observação: Em produção, `SECRET_KEY` não pode ficar no default; validado e
 
 ## 🧾 Scripts úteis
 
-- Rodar servidor (porta livre 8010):
+### 🚀 Iniciar o servidor
+
 ```bash
 uvicorn boilerplate.main:app --reload --port 8010
 ```
 
-- Limpar exemplo prático:
+### 🧹 Limpar exemplo prático
+
+Visualizar o que será removido (sem deletar):
 ```bash
-python scripts/cleanup_example.py --dry-run   # mostra o que seria removido
-python scripts/cleanup_example.py --yes       # confirma remoção sem prompt
+python scripts/cleanup_example.py --dry-run
 ```
+
+Remoção com confirmação interativa:
+```bash
+python scripts/cleanup_example.py
+```
+
+Remover tudo sem confirmação (útil para CI/automação):
+```bash
+python scripts/cleanup_example.py --yes
+```
+
+> **Nota**: O script verifica se os caminhos são seguros (dentro do projeto) antes de remover qualquer arquivo.
 
 Vamos criar um exemplo prático de uma API de tarefas (To-Do) para demonstrar como utilizar este boilerplate.
 
-### 1. Criando um Modelo de Dados
+### Onde está o exemplo no código
 
-Crie um arquivo `models/todo.py`:
+- Modelos: `src/boilerplate/models/todo.py`
+- Serviço: `src/boilerplate/services/todo.py`
+- Endpoints: `src/boilerplate/api/v1/endpoints/todos.py`
 
-```python
-from datetime import datetime
-from pydantic import BaseModel, Field
-from typing import Optional
+### Endpoints principais
 
-class TodoBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    completed: bool = False
+- `GET /api/v1/todos/` — Lista todas as tarefas
+- `POST /api/v1/todos/` — Cria uma nova tarefa (201)
+- `GET /api/v1/todos/{todo_id}` — Obtém uma tarefa específica
+- `PUT /api/v1/todos/{todo_id}` — Atualiza uma tarefa
+- `DELETE /api/v1/todos/{todo_id}` — Remove uma tarefa (204)
 
-class TodoCreate(TodoBase):
-    pass
-
-class TodoUpdate(TodoBase):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    completed: Optional[bool] = None
-
-class TodoInDB(TodoBase):
-    id: int
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        from_attributes = True
-```
-
-### 2. Criando um Serviço
-
-Crie um arquivo `services/todo.py`:
-
-```python
-from typing import List, Optional
-from datetime import datetime
-
-# Banco de dados em memória para exemplo
-fake_db = {}
-id_counter = 1
-
-class TodoService:
-    @staticmethod
-    async def get_todos() -> List[dict]:
-        return list(fake_db.values())
-
-    @staticmethod
-    async def get_todo(todo_id: int) -> Optional[dict]:
-        return fake_db.get(todo_id)
-
-    @staticmethod
-    async def create_todo(todo_data: dict) -> dict:
-        global id_counter
-        todo_id = id_counter
-        todo = {
-            "id": todo_id,
-            **todo_data,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
-        fake_db[todo_id] = todo
-        id_counter += 1
-        return todo
-
-    @staticmethod
-    async def update_todo(todo_id: int, todo_data: dict) -> Optional[dict]:
-        if todo_id not in fake_db:
-            return None
-        
-        fake_db[todo_id].update({
-            **todo_data,
-            "updated_at": datetime.utcnow()
-        })
-        return fake_db[todo_id]
-
-    @staticmethod
-    async def delete_todo(todo_id: int) -> bool:
-        if todo_id in fake_db:
-            del fake_db[todo_id]
-            return True
-        return False
-```
-
-### 3. Criando Rotas da API
-
-Crie um arquivo `api/v1/endpoints/todos.py`:
-
-```python
-from fastapi import APIRouter, HTTPException, status
-from typing import List
-
-from boilerplate.models.todo import TodoCreate, TodoUpdate, TodoInDB
-from boilerplate.services.todo import TodoService
-
-router = APIRouter(prefix="/todos", tags=["todos"])
-
-@router.get("/", response_model=List[TodoInDB])
-async def read_todos():
-    """Lista todas as tarefas."""
-    return await TodoService.get_todos()
-
-@router.post("/", response_model=TodoInDB, status_code=status.HTTP_201_CREATED)
-async def create_todo(todo: TodoCreate):
-    """Cria uma nova tarefa."""
-    return await TodoService.create_todo(todo.dict())
-
-@router.get("/{todo_id}", response_model=TodoInDB)
-async def read_todo(todo_id: int):
-    """Obtém uma tarefa pelo ID."""
-    todo = await TodoService.get_todo(todo_id)
-    if not todo:
-        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
-    return todo
-
-@router.put("/{todo_id}", response_model=TodoInDB)
-async def update_todo(todo_id: int, todo: TodoUpdate):
-    """Atualiza uma tarefa existente."""
-    updated_todo = await TodoService.update_todo(todo_id, todo.dict(exclude_unset=True))
-    if not updated_todo:
-        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
-    return updated_todo
-
-@router.delete("/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_todo(todo_id: int):
-    """Remove uma tarefa."""
-    if not await TodoService.delete_todo(todo_id):
-        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
-    return {"ok": True}
-```
-
-### 4. Registrando as Rotas
-
-Atualize o arquivo `api/v1/api.py`:
-
-```python
-from fastapi import APIRouter
-from .endpoints import todos
-
-api_router = APIRouter()
-api_router.include_router(todos.router)
-```
-
-E atualize o `main.py` para incluir o roteador da API:
-
-```python
-from fastapi import FastAPI
-from .api.v1.api import api_router
-
-app = FastAPI()
-app.include_router(api_router, prefix="/api/v1")
-```
-
-### 5. Testando a API
-
-Agora você pode testar a API usando os seguintes endpoints:
-
-- `GET /api/v1/todos/` - Lista todas as tarefas
-- `POST /api/v1/todos/` - Cria uma nova tarefa
-- `GET /api/v1/todos/{todo_id}` - Obtém uma tarefa específica
-- `PUT /api/v1/todos/{todo_id}` - Atualiza uma tarefa
-- `DELETE /api/v1/todos/{todo_id}` - Remove uma tarefa
-
-Exemplo de requisição para criar uma tarefa:
+Exemplo para criar uma tarefa:
 
 ```bash
-curl -X 'POST' \
-  'http://localhost:8010/api/v1/todos/' \
+curl -X POST 'http://localhost:8010/api/v1/todos/' \
   -H 'Content-Type: application/json' \
-  -d '{
-    "title": "Minha primeira tarefa",
-    "description": "Esta é uma tarefa de exemplo"
-  }'
+  -d '{"title": "Minha primeira tarefa", "description": "Exemplo"}'
 ```
 
 ## 🌐 Interface Web para o Exemplo de Tarefas
@@ -419,18 +314,7 @@ Se você deseja remover o exemplo prático de API de Tarefas após usá-lo como 
 
 2. Acesse a aplicação em http://localhost:8010
 
-## 🧪 Executando os testes
-
-```bash
-# Executar todos os testes
-pytest
-
-# Executar testes com cobertura
-pytest --cov=boilerplate tests/
-
-# Executar testes em paralelo
-pytest -n auto
-```
+<!-- Seção de testes consolidada no topo (🧪 Testes). Removida duplicação. -->
 
 ## 🛠️ Ferramentas de Desenvolvimento
 
@@ -496,6 +380,6 @@ Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 
 ## 📧 Contato
 
-Seu Nome - [@seu-usuario](https://github.com/seu-usuario)
+Darcy Junior - [@darcyjunior](https://github.com/darcyjunior)
 
-Link do Projeto: [https://github.com/seu-usuario/python-boilerplate](https://github.com/seu-usuario/python-boilerplate)
+Link do Projeto: [https://github.com/darcyjunior/python-boilerplate](https://github.com/darcyjunior/python-boilerplate)
