@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Minhas Tarefas - Boilerplate Python{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Minhas Tarefas</h1>
+        <button type="button" onclick="openCreateModal()" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none">
+            Nova Tarefa
+        </button>
+    </div>
+
+    <!-- Filtros e Busca -->
+    <div class="mb-6">
+        <div class="flex flex-col md:flex-row gap-4">
+            <div class="w-full md:w-1/2">
+                <label for="search" class="block mb-2 text-sm font-medium text-gray-900">Buscar</label>
+                <input type="text" id="search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Buscar tarefas...">
+            </div>
+            <div class="w-full md:w-1/2">
+                <label for="filter" class="block mb-2 text-sm font-medium text-gray-900">Filtrar por status</label>
+                <select id="filter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    <option value="all" selected>Todas</option>
+                    <option value="completed">Concluídas</option>
+                    <option value="pending">Pendentes</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Tarefas -->
+    <div id="todos-container" class="space-y-4">
+        <!-- As tarefas serão carregadas aqui via JavaScript -->
+        <div class="text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-2"></div>
+            <p class="text-gray-600">Carregando tarefas...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Criação/Edição -->
+<div id="todo-modal" class="modal-overlay hidden">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3 class="text-xl font-semibold text-gray-900" id="modal-title">Nova Tarefa</h3>
+            <button type="button" onclick="closeModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">
+                <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                </svg>
+                <span class="sr-only">Fechar</span>
+            </button>
+        </div>
+            <form id="todo-form" class="p-4 md:p-5">
+                <input type="hidden" id="todo-id" value="">
+                <div class="mb-4">
+                    <label for="title" class="block mb-2 text-sm font-medium text-gray-900">Título *</label>
+                    <input type="text" id="title" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                </div>
+                <div class="mb-4">
+                    <label for="description" class="block mb-2 text-sm font-medium text-gray-900">Descrição</label>
+                    <textarea id="description" rows="4" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex items-center mb-4">
+                    <input id="completed" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="completed" class="ms-2 text-sm font-medium text-gray-900">Concluída</label>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">
+                    Cancelar
+                </button>
+                <button type="button" onclick="saveTodo()" class="btn btn-primary">
+                    Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div id="confirm-modal" class="modal-overlay hidden">
+    <div class="modal-container" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3 class="text-xl font-semibold text-gray-900">Confirmar Exclusão</h3>
+            <button type="button" onclick="closeConfirmModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">
+                <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                </svg>
+                <span class="sr-only">Fechar</span>
+            </button>
+        </div>
+            <div class="modal-body text-center">
+                <svg class="mx-auto mb-4 text-gray-400 w-12 h-12" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                </svg>
+                <h3 class="mb-5 text-lg font-normal text-gray-700">Tem certeza que deseja excluir esta tarefa?</h3>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeConfirmModal()" class="btn btn-secondary">
+                    Cancelar
+                </button>
+                <button type="button" onclick="deleteTodo()" class="btn btn-danger">
+                    Sim, excluir
+                </button>
+                    <button type="button" onclick="closeConfirmModal()" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
+                        Não, cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='/js/todos.js') }}"></script>
+{% endblock %}

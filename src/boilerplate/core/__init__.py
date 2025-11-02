@@ -1,0 +1,1 @@
+# Núcleo (core) da aplicação

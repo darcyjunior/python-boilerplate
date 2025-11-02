@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: python-boilerplate
+    volumes:
+      - .:/app
+    ports:
+      - "8010:8010"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    working_dir: /app
+    command: bash -c "python -m uvicorn boilerplate.main:app --host 0.0.0.0 --port 8010 --reload"
+    env_file:
+      - .env
+
+  # Adicione outros serviços conforme necessário (banco de dados, cache, etc.)
+  # redis:
+  #   image: redis:alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+
+# volumes:
+#   redis_data:
